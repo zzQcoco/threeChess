@@ -179,7 +179,7 @@ public class ChessBoard {
         return true;
     }
     
-    public void Playing(int pieceId) {
+    public boolean Playing(int pieceId) {
         ChessPieces piece = piecesMap.get(pieceId);
         switch (process) {
             case Under:
@@ -202,6 +202,7 @@ public class ChessBoard {
             judge();
         }
         upPieces = piece;
+        return invalid;
     }
     
     public boolean under(ChessPieces p) {

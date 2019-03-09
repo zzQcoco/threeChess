@@ -7,9 +7,6 @@ package pri.zzq.threechess.main;
 
 import pri.zzq.threechess.client.ClientManager;
 import com.jme3.app.SimpleApplication;
-import com.jme3.audio.AudioData;
-import com.jme3.audio.AudioKey;
-import com.jme3.audio.AudioNode;
 import com.jme3.system.AppSettings;
 import com.simsilica.lemur.event.MouseAppState;
 import com.simsilica.lemur.event.TouchAppState;
@@ -47,12 +44,6 @@ public class Game extends SimpleApplication {
         this.setDisplayStatView(false);
         this.setPauseOnLostFocus(false);
         
-        AudioNode audioNode = new AudioNode(assetManager, "Sounds/bgSound.wav", AudioData.DataType.Buffer);
-        audioNode.setPositional(false);
-        audioNode.setPositional(false);
-        audioNode.setVolume(3);
-        audioNode.setLooping(true);
-        audioRenderer.playSource(audioNode);
 
         stateManager.attach(new MouseAppState(this));
         stateManager.attach(new TouchAppState(this));

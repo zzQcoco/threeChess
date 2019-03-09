@@ -10,6 +10,8 @@ import com.jme3.app.SimpleApplication;
 import com.jme3.app.state.AbstractAppState;
 import com.jme3.app.state.AppStateManager;
 import com.jme3.asset.AssetManager;
+import com.jme3.audio.AudioData;
+import com.jme3.audio.AudioNode;
 import com.jme3.font.BitmapFont;
 import com.jme3.font.BitmapText;
 import com.jme3.input.event.MouseButtonEvent;
@@ -90,6 +92,7 @@ public class ClientManager extends AbstractAppState implements MessageListener<C
 
     private BitmapText tipText;
     private BitmapText infoText;
+    private BitmapText playerText;
 
     private BitmapFont font;
 
@@ -97,6 +100,8 @@ public class ClientManager extends AbstractAppState implements MessageListener<C
     private boolean offline = true;
     private boolean isAI = false;
     private float ob;
+    private boolean enableBGM = true;
+    private AudioNode audioNode;
 
     @Override
     public void initialize(AppStateManager stateManager, Application app) {
@@ -106,7 +111,7 @@ public class ClientManager extends AbstractAppState implements MessageListener<C
         width = cam.getWidth();
         height = cam.getHeight();
 
-        font = getAssetManager().loadFont("Interface/str1.fnt");
+        font = getAssetManager().loadFont("Interface/text.fnt");
 
         ob = FastMath.sqrt(FastMath.sqr(width) + FastMath.sqr(height));
         if (!debug) {
@@ -133,14 +138,12 @@ public class ClientManager extends AbstractAppState implements MessageListener<C
         simpleApp.getGuiNode().attachChild(sceneNode);
         init();
         main();
-//        roomList(new int[]{0, 1, 2}, new String[]{"Waiting", "Playing", "Playing"});
-//        room();
     }
 
     private ChessBoard board;
     private AIPlayer aIPlayer;
 
-    private float aiDelay = 1f;
+    private final float aiDelay = 1f;
     private float time = 0f;
 
     private void initAi() {
@@ -161,8 +164,8 @@ public class ClientManager extends AbstractAppState implements MessageListener<C
         if (playerType.name().equals(board.getNextStep().name())) {
             LOG.log(Level.WARNING, "玩家走");
             board.Playing(id);
-            updateAiBoard();
         }
+        updateAiBoard();
     }
 
     private void aiPlaying() {
@@ -172,20 +175,26 @@ public class ClientManager extends AbstractAppState implements MessageListener<C
             if (id != -1) {
                 board.Playing(id);
             }
-            if (board.getProcess() == GameProcess.Walk || board.getProcess() == GameProcess.exchange) {
-                int id2 = aIPlayer.setp(board);
-                board.Playing(id2);
-            }
-            updateAiBoard();
         }
+        updateAiBoard();
     }
 
     @Override
     public void update(float tpf) {
-        time += tpf;
+        if (aIPlayer != null && aIPlayer.pieceState == nextStep) {
+            time += tpf;
+        }
         if (isAI && time > aiDelay) {
             time = 0f;
             aiPlaying();
+        }
+        if (board != null) {
+            for (ChessPieces piece : board.pieces()) {
+                PiecesControl control = pieceMap.get(piece.getId());
+                if (control.getState() != piece.getState()) {
+                    control.setState(piece.getState());
+                }
+            }
         }
     }
 
@@ -207,14 +216,6 @@ public class ClientManager extends AbstractAppState implements MessageListener<C
         LOG.log(Level.WARNING, "更新房间状态nextStep:{0}", nextStep);
         updateTip();
 
-        simpleApp.enqueue(new Runnable() {
-            @Override
-            public void run() {
-                for (ChessPieces piece : board.pieces()) {
-                    pieceMap.get(piece.getId()).setState(piece.getState());
-                }
-            }
-        });
         if (board.getProcess() == GameProcess.Perform) {
             show(board.getComplete());
         }
@@ -225,6 +226,59 @@ public class ClientManager extends AbstractAppState implements MessageListener<C
         initRoomList();
         initRoom();
         initAbout();
+        initBGM();
+        initBGMIoc();
+    }
+
+    private void initBGM() {
+        audioNode = new AudioNode(getAssetManager(), "Sounds/bgSound.wav", AudioData.DataType.Buffer);
+        audioNode.setPositional(false);
+        audioNode.setPositional(false);
+        audioNode.setVolume(3);
+        audioNode.setLooping(true);
+        simpleApp.getAudioRenderer().playSource(audioNode);
+        enableBGM = true;
+    }
+
+    private void setEnableBGM(boolean enable) {
+        enableBGM = enable;
+        if (audioNode == null) {
+            return;
+        }
+        if (enableBGM) {
+            audioNode.stop();
+        } else {
+            audioNode.play();
+        }
+    }
+    private Node bgmIocNode;
+
+    private void initBGMIoc() {
+        MouseEventControl mec = new MouseEventControl(new DefaultMouseListener(){
+            @Override
+            protected void click(MouseButtonEvent event, Spatial target, Spatial capture) {
+                if (event.isReleased()) {
+                    enableBGM = !enableBGM;
+                    setEnableBGM(enableBGM);
+                    if (target instanceof Picture) {
+                        Picture pic = (Picture)target;
+                        pic.setImage(getAssetManager(), enableBGM ? "Textures/bgmOn.png" : "Textures/bgmOff.png", true);
+                    }
+                }
+            }
+            
+        });
+        
+        bgmIocNode = new Node("bgm btn");
+        Picture bgmbtn = new Picture("bgmpic");
+        bgmbtn.setImage(getAssetManager(), "Textures/bgmOff.png", true);
+        float a = height * 0.08f;
+        bgmbtn.setWidth(a);
+        bgmbtn.setHeight(a);
+        bgmbtn.setLocalTranslation(width * 0.98f - a, height * 0.9f, 5);
+        bgmbtn.addControl(mec);
+        bgmIocNode.attachChild(bgmbtn);
+        simpleApp.getGuiNode().attachChild(bgmIocNode);
     }
 
     private void initMain() {
@@ -281,11 +335,11 @@ public class ClientManager extends AbstractAppState implements MessageListener<C
         };
 
         for (int i = 0; i < 4; i++) {
-            BitmapText text = new BitmapText(font);// ttf.getText(labels[i], 1, ColorRGBA.Black);
+            BitmapText text = new BitmapText(font);
             text.setText(labels[i]);
             text.setSize(ob * 0.03f);
             text.setColor(ColorRGBA.Black);
-            text.setName("label-" + i);
+            text.setName("label");
 
             Picture picture = new Picture("pic " + i);
             picture.setImage(getAssetManager(), bgBtnPNG, true);
@@ -310,6 +364,31 @@ public class ClientManager extends AbstractAppState implements MessageListener<C
     }
 
     private void main() {
+        Spatial cSpatial = mainNode.getChild("create node");
+        if (cSpatial instanceof Node) {
+            Node createNode = (Node) cSpatial;
+            Spatial labelSpatial = createNode.getChild("label");
+            if (labelSpatial instanceof BitmapText) {
+                BitmapText label = (BitmapText) labelSpatial;
+                label.setText(offline ? "创建房间(离线)" : "创建房间");
+                if (offline) {
+                    label.setColor(4, 8, ColorRGBA.Red);
+                }
+            }
+        }
+
+        Spatial jSpatial = mainNode.getChild("join node");
+        if (jSpatial instanceof Node) {
+            Node joinNode = (Node) jSpatial;
+            Spatial labelSpatial = joinNode.getChild("label");
+            if (labelSpatial instanceof BitmapText) {
+                BitmapText label = (BitmapText) labelSpatial;
+                label.setText(offline ? "加入房间(离线)" : "加入房间");
+                if (offline) {
+                    label.setColor(4, 8, ColorRGBA.Red);
+                }
+            }
+        }
         simpleApp.enqueue(new Runnable() {
             @Override
             public void run() {
@@ -349,8 +428,6 @@ public class ClientManager extends AbstractAppState implements MessageListener<C
 
     private void roomList(int[] roomids, String[] states) {
         listNode.detachAllChildren();
-//        TrueTypeKeyMesh key = new TrueTypeKeyMesh(font, Style.Bold, Math.round(ob * 0.02f));
-//        TrueTypeMesh ttf = (TrueTypeMesh) getAssetManager().loadAsset(key);
 
         float w = width * 0.3f;
         float h = height * 0.8f;
@@ -387,12 +464,11 @@ public class ClientManager extends AbstractAppState implements MessageListener<C
                     break;
             }
 
-            BitmapText text_1 = new BitmapText(font);//ttf.getText(String.valueOf(roomids[i]), 1, color);
+            BitmapText text_1 = new BitmapText(font);
             text_1.setText(String.valueOf(roomids[i]));
             text_1.setColor(color);
             text_1.setSize(ob * 0.02f);
 
-//            TrueTypeMeshText text_2 = ttf.getText(stateName, 1, color);
             BitmapText text_2 = new BitmapText(font);
             text_2.setText(stateName);
             text_2.setColor(color);
@@ -534,21 +610,19 @@ public class ClientManager extends AbstractAppState implements MessageListener<C
         bgpicInfo.setHeight(height * 0.2f);
         bgpicInfo.setLocalTranslation(0, -height * 0.1f, -2);
 
-//        TrueTypeKeyMesh key = new TrueTypeKeyMesh(font, Math.round(ob * 0.03f));
-//        TrueTypeMesh ttf = (TrueTypeMesh) getAssetManager().loadAsset(key);
-        BitmapText playerText = new BitmapText(font);
-        playerText.setText("玩家：" + (playerType == PlayerType.white ? "白" : "黑") + "棋");
+        playerText = new BitmapText(font);
+        playerText.setText("");
         playerText.setColor(ColorRGBA.Black);
         playerText.setSize(ob * 0.03f);
         playerText.setLocalTranslation(width * 0.2f, height * 0.04f, 0);
-        
+
         tipText = new BitmapText(font);
         tipText.setText("等待玩家加入");
         tipText.setColor(ColorRGBA.Black);
         tipText.setSize(ob * 0.03f);
         tipText.setLocalTranslation(width * 0.2f, 0, 0);
 
-        infoText =  new BitmapText(font);
+        infoText = new BitmapText(font);
         infoText.setText("");
         infoText.setColor(ColorRGBA.Black);
         infoText.setSize(ob * 0.02f);
@@ -710,14 +784,11 @@ public class ClientManager extends AbstractAppState implements MessageListener<C
                     break;
             }
         }
-        simpleApp.enqueue(new Runnable() {
-            @Override
-            public void run() {
-                tipText.setText(tipSb.toString());
-                tipSb.setLength(0);
-                infoText.setText("余子：黑：" + black + "； 白：" + white);
-            }
-        });
+
+        infoText.setText("余子[ 黑: " + black + "; 白:" + white + " ]");
+        playerText.setText("玩家:" + (playerType == PlayerType.white ? "白" : "黑") + "棋");
+        tipText.setText(tipSb.toString());
+        tipSb.setLength(0);
     }
 
     @Override

@@ -7,7 +7,6 @@ package pri.zzq.threechess.main;
 
 import pri.zzq.threechess.def.PieceState;
 import com.jme3.math.ColorRGBA;
-import com.jme3.math.Vector3f;
 import com.jme3.renderer.RenderManager;
 import com.jme3.renderer.ViewPort;
 import com.jme3.scene.Geometry;
@@ -19,7 +18,7 @@ import com.jme3.scene.control.AbstractControl;
  */
 public class PiecesControl extends AbstractControl {
 
-    private int id;
+    private final int id;
     private PieceState state = PieceState.none;
     
 
@@ -37,10 +36,10 @@ public class PiecesControl extends AbstractControl {
 
     public void setState(PieceState state) {
         this.state = state;
-        updatePiece();
+        updatePiece(state);
     }
 
-    public void updatePiece() {
+    public void updatePiece(PieceState state) {
         switch (state) {
             case none:
                 spatial.setLocalTranslation(spatial.getLocalTranslation().setZ(-10));
@@ -94,6 +93,8 @@ public class PiecesControl extends AbstractControl {
                     setColor(tempCount % 2 == 1 ? ColorRGBA.Red : color);
                 }
             }
+        } else {
+            updatePiece(state);
         }
     }
 
