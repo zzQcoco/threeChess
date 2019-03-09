@@ -240,35 +240,31 @@ public class ClientManager extends AbstractAppState implements MessageListener<C
         enableBGM = true;
     }
 
-    private void setEnableBGM(boolean enable) {
-        enableBGM = enable;
-        if (audioNode == null) {
-            return;
-        }
-        if (enableBGM) {
-            audioNode.stop();
-        } else {
-            audioNode.play();
-        }
-    }
     private Node bgmIocNode;
-
+    
+    private float bgmTimer = 0f;
     private void initBGMIoc() {
-        MouseEventControl mec = new MouseEventControl(new DefaultMouseListener(){
+        MouseEventControl mec = new MouseEventControl(new DefaultMouseListener() {
             @Override
             protected void click(MouseButtonEvent event, Spatial target, Spatial capture) {
-                if (event.isReleased()) {
+                float time = simpleApp.getTimer().getTimeInSeconds();
+                if (event.isReleased() && (time - bgmTimer) > 0.2f) {
+                    bgmTimer = time;
                     enableBGM = !enableBGM;
-                    setEnableBGM(enableBGM);
+                    if (enableBGM) {
+                        audioNode.play();
+                    } else {
+                        audioNode.stop();
+                    }
+                    LOG.log(Level.WARNING, "BGM:{0}", enableBGM);
                     if (target instanceof Picture) {
-                        Picture pic = (Picture)target;
-                        pic.setImage(getAssetManager(), enableBGM ? "Textures/bgmOn.png" : "Textures/bgmOff.png", true);
+                        Picture pic = (Picture) target;
+                        pic.setImage(getAssetManager(), enableBGM ? "Textures/bgmOff.png" : "Textures/bgmOn.png", true);
                     }
                 }
             }
-            
         });
-        
+
         bgmIocNode = new Node("bgm btn");
         Picture bgmbtn = new Picture("bgmpic");
         bgmbtn.setImage(getAssetManager(), "Textures/bgmOff.png", true);

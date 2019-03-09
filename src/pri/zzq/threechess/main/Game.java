@@ -44,7 +44,6 @@ public class Game extends SimpleApplication {
         this.setDisplayStatView(false);
         this.setPauseOnLostFocus(false);
         
-
         stateManager.attach(new MouseAppState(this));
         stateManager.attach(new TouchAppState(this));
         clientManager = new ClientManager();
